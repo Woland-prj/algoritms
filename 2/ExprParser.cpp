@@ -43,7 +43,7 @@ void ExprParser::Calc()
 		if (VarMapper::IsVariable(c))
 		{
 			m_calcStack.Push(m_varMapper.GetValue(c));
-			m_infixExprStack.Push({ std::string(1, c), ZERO_PRIORITY, false });
+			m_infixExprStack.Push({ std::format("{}", m_varMapper.GetValue(c)), ZERO_PRIORITY, false });
 			i++;
 			continue;
 		}
