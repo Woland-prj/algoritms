@@ -15,9 +15,9 @@ FileSystem::FileSystem(std::istream& in)
 	m_current = m_root.get();
 }
 
-Inode FileSystem::GetCurrent() const
+FSNode& FileSystem::GetCurrent() const
 {
-	return Inode(*m_current);
+	return *m_current;
 }
 
 void FileSystem::ResetToRoot()
@@ -77,7 +77,7 @@ void FileSystem::CreateFile(const std::string& fileName)
 void FileSystem::Copy(const uint16_t childIndex)
 {
 	CheckIndex(childIndex);
-	if (IsCoping() || IsMoving())
+	if (IsCopeing() || IsMoving())
 		throw std::runtime_error("Что-то уже скопировано или вырезано");
 	m_mode = FSMode::COPY;
 	m_interactNode = std::make_unique<FSNode>(*(m_current->m_children.at(childIndex).get()));
@@ -86,7 +86,7 @@ void FileSystem::Copy(const uint16_t childIndex)
 void FileSystem::Cut(const uint16_t childIndex)
 {
 	CheckIndex(childIndex);
-	if (IsCoping() || IsMoving())
+	if (IsCopeing() || IsMoving())
 		throw std::runtime_error("Что-то уже скопировано или вырезано");
 	m_mode = FSMode::MOVE;
 	m_interactNode = std::move(m_current->m_children.at(childIndex));
@@ -101,7 +101,7 @@ void FileSystem::Rename(const uint16_t childIndex, const std::string& newName) c
 
 void FileSystem::Paste()
 {
-	if (!IsCoping() && !IsMoving())
+	if (!IsCopeing() && !IsMoving())
 		throw std::runtime_error("Ничего не скопировано и не вырезано");
 	m_interactNode->m_parent = m_current;
 	RecalculateLevel(*m_interactNode);
@@ -169,7 +169,7 @@ int16_t FileSystem::ParseLine(const std::string& strNode, int16_t prevLevel)
 				throw std::invalid_argument(
 					"Корень файловой системы должен начинаться с маркера D! Прочитано: " + strNode);
 			isDir = true;
-			state = ParseState::NAME;
+			state = ParseState::PRE_NAME;
 			break;
 		}
 	}
@@ -202,7 +202,7 @@ void FileSystem::Dump(std::ostream& out) const
 	Out(out, *m_root);
 }
 
-bool FileSystem::IsCoping() const
+bool FileSystem::IsCopeing() const
 {
 	return m_mode == FSMode::COPY;
 }
@@ -210,14 +210,6 @@ bool FileSystem::IsCoping() const
 bool FileSystem::IsMoving() const
 {
 	return m_mode == FSMode::MOVE;
-}
-
-std::ostream& operator<<(std::ostream& out, const FSNode& node)
-{
-	for (size_t i = 0; i < node.m_level; i++)
-		out << '.';
-	out << (node.m_isDir ? "D" : "F") << " " << node.m_name << std::endl;
-	return out;
 }
 
 void FileSystem::Out(std::ostream& out, const FSNode& ptr)
