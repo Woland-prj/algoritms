@@ -3,33 +3,37 @@
 #include <fstream>
 #include <iostream>
 
-std::ifstream OpenFile(const std::string& fileName)
+std::fstream OpenFile(const std::string& fileName)
 {
-	std::ifstream in(fileName);
-	if (!in.is_open())
+	std::fstream f(fileName);
+	if (!f.is_open())
 		throw std::runtime_error("Не удалось открыть " + fileName);
-	return in;
+	return f;
 }
 
 int main(int argc, char* argv[])
 {
-	FileSystem* fs;
-	try
+	std::fstream f;
+	if (argc > 1)
 	{
-		if (argc > 1)
+		try
 		{
-			std::ifstream in = OpenFile(argv[1]);
-			fs = new FileSystem(in);
+			f = OpenFile(argv[1]);
 		}
-		else
-			fs = new FileSystem("/");
+		catch (const std::exception& ex)
+		{
+			std::cout << "Ошибка открытия файла: " << ex.what() << std::endl;
+		}
 	}
-	catch (const std::exception& ex)
-	{
-		std::cout << "Ошибка инициализации файловой системы: " << ex.what() << std::endl;
-		return 1;
-	}
-	TUI tui(*fs);
+	FileSystem fs = f.is_open() ? FileSystem(f) : FileSystem();
+	TUI tui(fs);
 	tui.Run();
+	if (f.is_open())
+	{
+		f.close();
+		std::ofstream out(argv[1], std::ios::trunc);
+		out << fs;
+		out.close();
+	}
 	return 0;
 }

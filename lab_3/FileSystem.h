@@ -6,7 +6,7 @@
 class FileSystem final
 {
 public:
-	FileSystem() = delete;
+	FileSystem();
 	explicit FileSystem(const std::string& rootName);
 	explicit FileSystem(std::istream& in);
 

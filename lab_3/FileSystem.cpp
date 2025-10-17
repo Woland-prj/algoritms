@@ -3,6 +3,12 @@
 #include <string>
 #include <vector>
 
+FileSystem::FileSystem()
+	: m_root(std::make_unique<FSNode>("/", true, 0, nullptr))
+	, m_current(m_root.get())
+{
+}
+
 FileSystem::FileSystem(const std::string& rootName)
 	: m_root(std::make_unique<FSNode>(rootName, true, 0, nullptr))
 	, m_current(m_root.get())
@@ -37,11 +43,16 @@ bool FileSystem::MoveUp()
 
 void FileSystem::CheckIndex(const uint16_t childIndex) const
 {
-	if (childIndex > m_current->m_children.size() - 1)
+	if (m_current->m_children.empty())
+	{
+		throw std::runtime_error("Директория пуста");
+	}
+	if (childIndex >= m_current->m_children.size())
+	{
 		throw std::runtime_error(
-			std::format(
-				"Директория {} имеет {} вложенных элементов. Полученный индекс: {}",
-				m_current->m_name, m_current->m_children.size(), childIndex));
+			std::format("Индекс {} выходит за пределы [0, {})",
+				childIndex, m_current->m_children.size()));
+	}
 }
 
 void FileSystem::Open(const uint16_t childIndex)

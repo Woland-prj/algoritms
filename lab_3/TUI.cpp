@@ -8,6 +8,7 @@ TUI::TUI(FileSystem& fs)
 	const auto& root = m_fs.GetCurrent();
 	m_path = { root.GetName() };
 
+	setlocale(LC_ALL, "ru_RU.UTF-8");
 	initscr();
 	noecho();
 	raw();
@@ -90,6 +91,15 @@ void TUI::HandleInput(int ch)
 		break;
 	case K_VIM_PASTE:
 		DoPaste();
+		break;
+	case K_VIM_RENAME:
+		DoRename();
+		break;
+	case K_VIM_DELETE:
+		DoDelete();
+		break;
+	case K_VIM_ADD:
+		DoCreate();
 		break;
 	default:
 		break;
@@ -236,3 +246,282 @@ void TUI::DoPaste()
 		return;
 	m_fs.Paste();
 };
+
+std::string TUI::ShowRenameDialog(const std::string& oldName)
+{
+	int sy, sx;
+	getmaxyx(stdscr, sy, sx);
+
+	int winH = 5;
+	int winW = 40;
+	int winY = sy / 2 - winH / 2;
+	int winX = sx / 2 - winW / 2;
+
+	WINDOW* win = newwin(winH, winW, winY, winX);
+	box(win, 0, 0);
+	mvwprintw(win, 0, 2, " Переименовать ");
+	mvwprintw(win, 1, 2, "Старое имя: %s", oldName.c_str());
+	mvwprintw(win, 2, 2, "Новое имя: ");
+
+	std::string newName = oldName;
+	int cursorPos = static_cast<int>(newName.size());
+	wrefresh(win);
+
+	echo();
+	curs_set(1);
+
+	WINDOW* inputWin = derwin(win, 1, winW - 14, 2, 13);
+	if (!inputWin)
+	{
+		noecho();
+		curs_set(0);
+		delwin(win);
+		return oldName;
+	}
+
+	waddstr(inputWin, newName.c_str());
+	wmove(inputWin, 0, cursorPos);
+	wrefresh(inputWin);
+
+	int ch;
+	while ((ch = wgetch(inputWin)) != '\n')
+	{
+		if (ch == K_MAC_ESC)
+		{
+			newName = oldName;
+			break;
+		}
+		else if (ch == KEY_BACKSPACE || ch == K_MAC_BACKSPACE || ch == K_CH_BACKSPACE)
+		{
+			if (!newName.empty() && cursorPos > 0)
+			{
+				newName.erase(cursorPos - 1, 1);
+				cursorPos--;
+				werase(inputWin);
+				waddstr(inputWin, newName.c_str());
+				wmove(inputWin, 0, cursorPos);
+			}
+		}
+		else if (ch >= K_SPACE)
+		{ // printable ASCII
+			newName.insert(cursorPos, 1, static_cast<char>(ch));
+			cursorPos++;
+			werase(inputWin);
+			waddstr(inputWin, newName.c_str());
+			wmove(inputWin, 0, cursorPos);
+		}
+		wrefresh(inputWin);
+	}
+
+	delwin(inputWin);
+	noecho();
+	curs_set(0);
+	delwin(win);
+	redrawwin(m_rootWin);
+	wrefresh(m_rootWin);
+
+	return newName;
+}
+
+bool TUI::ShowDeleteConfirmDialog(const std::string& name)
+{
+	int sy, sx;
+	getmaxyx(stdscr, sy, sx);
+
+	int win_h = 5;
+	int win_w = 40;
+	int win_y = sy / 2 - win_h / 2;
+	int win_x = sx / 2 - win_w / 2;
+
+	WINDOW* win = newwin(win_h, win_w, win_y, win_x);
+	box(win, 0, 0);
+	mvwprintw(win, 0, 2, " Подтверждение ");
+	mvwprintw(win, 1, 2, "Удалить \"%s\"?", name.c_str());
+	mvwprintw(win, 2, 2, "(y/n): ");
+	wrefresh(win);
+
+	int ch;
+	do
+	{
+		ch = wgetch(win);
+		if (ch == 'y' || ch == 'Y')
+		{
+			delwin(win);
+			return true;
+		}
+		if (ch == 'n' || ch == 'N' || ch == 27)
+		{
+			delwin(win);
+			return false;
+		}
+	} while (true);
+}
+
+void TUI::DoRename()
+{
+	const auto& inode = m_fs.GetCurrent();
+	if (inode.GetChildren().empty() || m_selected < 0)
+		return;
+
+	const auto* node = inode.GetChildren()[m_selected];
+	std::string oldName = node->GetName();
+	std::string newName = ShowRenameDialog(oldName);
+
+	if (newName != oldName && !newName.empty())
+	{
+		try
+		{
+			m_fs.Rename(m_selected, newName);
+		}
+		catch (const std::exception& ex)
+		{
+			DrawStatus(ex.what());
+		}
+	}
+}
+
+void TUI::DoDelete()
+{
+	const auto& inode = m_fs.GetCurrent();
+	if (inode.GetChildren().empty() || m_selected < 0)
+		return;
+
+	const auto* node = inode.GetChildren()[m_selected];
+	std::string name = node->GetName();
+
+	if (ShowDeleteConfirmDialog(name))
+	{
+		try
+		{
+			m_fs.Delete(m_selected);
+			if (m_selected >= static_cast<int>(inode.GetChildren().size()))
+			{
+				m_selected = static_cast<int>(inode.GetChildren().size()) - 1;
+			}
+			if (m_selected < 0)
+				m_selected = 0;
+		}
+		catch (const std::exception& ex)
+		{
+			DrawStatus(ex.what());
+		}
+	}
+}
+
+std::string TUI::ShowCreateDialog()
+{
+	int sy, sx;
+	getmaxyx(stdscr, sy, sx);
+
+	int winH = 5;
+	int winW = 40;
+	int winY = sy / 2 - winH / 2;
+	int winX = sx / 2 - winW / 2;
+
+	WINDOW* win = newwin(winH, winW, winY, winX);
+	box(win, 0, 0);
+	mvwprintw(win, 0, 2, " Создать файл/папку ");
+	mvwprintw(win, 1, 2, "Имя (с / в конце — папка):");
+	mvwprintw(win, 2, 2, "> ");
+	wrefresh(win);
+
+	echo();
+	curs_set(1);
+
+	WINDOW* inputWin = derwin(win, 1, winW - 4, 2, 4);
+	if (!inputWin)
+	{
+		noecho();
+		curs_set(0);
+		delwin(win);
+		return "";
+	}
+
+	std::string name;
+	int ch;
+	werase(inputWin);
+	wrefresh(inputWin);
+	while ((ch = wgetch(inputWin)) != '\n')
+	{
+		if (ch == K_MAC_ESC)
+		{
+			name.clear();
+			break;
+		}
+		else if (ch == KEY_BACKSPACE || ch == K_MAC_BACKSPACE || ch == K_CH_BACKSPACE)
+		{
+			if (!name.empty())
+			{
+				name.pop_back();
+				werase(inputWin);
+				waddstr(inputWin, name.c_str());
+			}
+		}
+		else if (ch >= K_SPACE)
+		{
+			name += static_cast<char>(ch);
+			waddstr(inputWin, name.c_str() + (name.size() - 1));
+		}
+		werase(inputWin);
+		waddstr(inputWin, name.c_str());
+		wmove(inputWin, 0, static_cast<int>(name.size()));
+		wrefresh(inputWin);
+	}
+
+	delwin(inputWin);
+	noecho();
+	curs_set(0);
+	delwin(win);
+	redrawwin(m_rootWin);
+	wrefresh(m_rootWin);
+
+	return name;
+}
+
+void TUI::DoCreate()
+{
+	std::string input = ShowCreateDialog();
+	if (input.empty())
+		return;
+
+	bool isDir = false;
+	std::string name = input;
+
+	if (!name.empty() && name.back() == '/')
+	{
+		isDir = true;
+		name.pop_back();
+	}
+
+	if (name.empty())
+	{
+		DrawStatus("Имя не может быть пустым");
+		return;
+	}
+
+	try
+	{
+		if (isDir)
+		{
+			m_fs.CreateFolder(name);
+		}
+		else
+		{
+			m_fs.CreateFile(name);
+		}
+		const auto& inode = m_fs.GetCurrent();
+		const auto children = inode.GetChildren();
+		for (size_t i = 0; i < children.size(); ++i)
+		{
+			if (children[i]->GetName() == name)
+			{
+				m_selected = static_cast<int>(i);
+				break;
+			}
+		}
+	}
+	catch (const std::exception& ex)
+	{
+		DrawStatus(ex.what());
+	}
+}
