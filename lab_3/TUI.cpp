@@ -49,7 +49,7 @@ void TUI::Run()
 	while (running)
 	{
 		int ch = wgetch(m_rootWin);
-		if (ch == 'q' || ch == 'Q')
+		if (ch == K_QUIET)
 		{
 			running = false;
 		}
@@ -101,6 +101,9 @@ void TUI::HandleInput(int ch)
 	case K_VIM_ADD:
 		DoCreate();
 		break;
+	case K_HELP:
+		ShowHelpDialog();
+		break;
 	default:
 		break;
 	}
@@ -144,10 +147,11 @@ void TUI::GoBack()
 void TUI::Draw()
 {
 	werase(m_rootWin);
-	DrawHeaderBox(" Woland comander ");
+	DrawHeaderBox(" Woland commander ");
 	DrawPath();
 	DrawFileList();
 	DrawMode();
+	DrawHelp();
 	wrefresh(m_rootWin);
 }
 
@@ -201,6 +205,14 @@ void TUI::DrawStatus(const std::string& msg)
 	wattron(m_rootWin, COLOR_PAIR(4) | A_BOLD);
 	mvwprintw(m_rootWin, sy - 2, 2, "%s", msg.c_str());
 	wattroff(m_rootWin, COLOR_PAIR(4) | A_BOLD);
+	wrefresh(m_rootWin);
+}
+
+void TUI::DrawHelp()
+{
+	int sy, sx;
+	getmaxyx(m_rootWin, sy, sx);
+	mvwprintw(m_rootWin, 1, sx - HELP_MSG_SIZE - 1, HELP_MSG);
 	wrefresh(m_rootWin);
 }
 
@@ -476,6 +488,34 @@ std::string TUI::ShowCreateDialog()
 	wrefresh(m_rootWin);
 
 	return name;
+}
+
+void TUI::ShowHelpDialog()
+{
+	int sy, sx;
+	getmaxyx(stdscr, sy, sx);
+
+	int winH = HELP_WIN_MSG_LEN + 2;
+	int winW = 50;
+	int winY = sy / 2 - winH / 2;
+	int winX = sx / 2 - winW / 2;
+
+	WINDOW* win = newwin(winH, winW, winY, winX);
+	box(win, 0, 0);
+	mvwprintw(win, 0, 2, " Справка ");
+	for (size_t i = 0; i < HELP_WIN_MSG_LEN; i++)
+	{
+		mvwprintw(win, i + 1, 2, HELP_WIN_MSG[i]);
+	}
+	wrefresh(win);
+
+	int ch = 0;
+	while (ch != K_QUIET && ch != K_MAC_ESC)
+		ch = wgetch(win);
+
+	delwin(win);
+	redrawwin(m_rootWin);
+	wrefresh(m_rootWin);
 }
 
 void TUI::DoCreate()

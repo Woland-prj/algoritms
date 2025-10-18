@@ -1,4 +1,6 @@
-#pragma once
+// библиотека отрисовки интерфейса UNIX ncurses:
+// https://en.wikipedia.org/wiki/Ncurses
+// https://github.com/mcdaniel/curses_tutorial
 #ifndef TUI_H
 #define TUI_H
 #include "FileSystem.h"
@@ -17,9 +19,30 @@ static constexpr int K_VIM_COPY = 'y';
 static constexpr int K_VIM_PASTE = 'p';
 static constexpr int K_VIM_RENAME = 'r';
 static constexpr int K_VIM_DELETE = 'd';
+static constexpr int K_HELP = 'h';
 static constexpr int K_SPACE = 32;
 static constexpr int K_TILD = 126;
 static constexpr int K_VIM_ADD = 'a';
+static constexpr int K_QUIET = 'q';
+
+static constexpr auto HELP_MSG = " q - выход | h - справка ";
+static constexpr auto HELP_MSG_SIZE = 25;
+
+static constexpr const char* HELP_WIN_MSG[] = {
+	"q / Esc - выход",
+	"← - вверх к родительской директории",
+	"→ / Enter - открыть директорию",
+	"↑ / k - передвинуть курсор вверх",
+	"↓ / j - передвинуть курсор вниз",
+	"a - новый файл / директория",
+	"y - скопировать файл / директория",
+	"x - вырезать файл / директория",
+	"p - вставить файл / директорию",
+	"r - переименовать файл / директорию",
+	"d - удалить файл / директорию",
+};
+
+static constexpr int HELP_WIN_MSG_LEN = 11;
 
 class TUI
 {
@@ -39,6 +62,7 @@ private:
 	void DrawPath();
 	void DrawFileList();
 	void DrawStatus(const std::string& msg);
+	void DrawHelp();
 	void DrawMode();
 
 	void HandleInput(int ch);
@@ -51,6 +75,7 @@ private:
 	std::string ShowRenameDialog(const std::string& oldName);
 	bool ShowDeleteConfirmDialog(const std::string& name);
 	std::string ShowCreateDialog();
+	void ShowHelpDialog();
 	void DoCreate();
 	void DoRename();
 	void DoDelete();
