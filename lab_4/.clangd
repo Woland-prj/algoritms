@@ -1,0 +1,45 @@
+CompileFlags:
+  # Указываем, где искать compile_commands.json
+  CompilationDatabase: .
+
+Diagnostics:
+  # Показывать предупреждения из системных заголовков
+  Suppress: []
+  ClangTidy:
+    Add: "*"
+    Remove: >
+      # Убираем самые шумные проверки, которые редко полезны
+      -clang-analyzer-*,
+      -llvm-header-guard,
+      -misc-unused-parameters,
+      -modernize-use-trailing-return-type,
+      -readability-magic-numbers,
+      -readability-identifier-length
+    # Включаем все оставшиеся проверки
+    CheckOptions:
+      - key: readability-braces-around-statements.ShortStatementLines
+        value: "0"
+      - key: readability-implicit-bool-conversion.AllowIntegerConditions
+        value: "true"
+      - key: modernize-loop-convert.MinConfidence
+        value: reasonable
+      - key: modernize-use-auto.MinTypeNameLength
+        value: "0"
+      - key: performance-unnecessary-value-param.AllowedTypes
+        value: "::std::function"
+
+Index:
+  Background: Build
+  StandardLibrary: Yes
+
+Formatting:
+  Style: file # clang-format будет брать стиль из .clang-format, если он есть
+
+Hover:
+  ShowAKA: Yes
+
+InlayHints:
+  Designators: Yes
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
